@@ -1,0 +1,2369 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Stl to relief</title>
+    <style>
+        body {
+            margin: 0;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%
+        }
+
+        input[type=button],
+        input[type=checkbox],
+        input[type=submit],
+        input[type=reset] {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            margin: 4px 2px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <center>
+        <div class="displayScene">
+            Screen Resolution (in pixels per mm) : <input type="number" id="screenResolution" value=5.5 min=0.1
+                step=0.01 onchange="resizeStock()">
+            Max Scene Screen width (in mm) : <input type="number" id="screenResolutionX" value=200 min=1 step=1
+                onchange="resizeStock()">
+            Max Scene Screen height (in mm) : <input type="number" id="screenResolutionY" value=150 min=1 step=1
+                onchange="resizeStock()">
+            Current Display Scale : <span id="currentScreenResolution">current</span><br />
+        </div>
+
+        <div class="SceneControls">
+            <input type="button" onclick="clearScene()" value="Clear Scene" />
+            <input type="file" id="sceneImport" onchange="importInputScene(this)" accept=".scene"
+                style="display:none;" />
+            <input type="button" onclick="document.getElementById('sceneImport').click();"
+                value="Import Scene (No version compatibility guarantees)" />
+            Export Input Scene Name : <input type="text" id="inputSceneName" value="input"
+                onchange="document.getElementById('outname').value=this.value;" />
+            <input type="button" onclick="exportInputScene()"
+                value="Export Input Scene (No version compatibility guarantees)" />
+        </div>
+        <div class="stock">
+            Stock x : <input type="number" id="stockX" value=100 onchange="resizeStock()">
+            Stock y : <input type="number" id="stockY" value=100 onchange="resizeStock()">
+            Stock z : <input type="number" id="stockZ" value=10>
+        </div>
+
+        <div>
+            <div class="objectmover">
+                <input type="file" id="fileinput" onchange="read(this)" accept=".stl" style="display:none;" /><br />
+                <input type="button" onclick="document.getElementById('fileinput').click();"
+                    value="Add Stl From Disk" />
+                <input type="button" onclick="addFileFromUrl('stls/Fennec_Fox.stl')" value="Add Fennec" />
+                <input type="button" onclick="addFileFromUrl('stls/outergear.stl')" value="Add Gear" />
+                <input type="button" onclick="addFileFromUrl('stls/red-dragon-wyrmling.stl')" value="Add Dragon" />
+                <input type="button" onclick="addFileFromUrl('stls/Alien.stl')" value="Add Alien" />
+                <input type="button" onclick="addFileFromUrl('stls/End_Table.stl')" value="Add Table" />
+                <input type="button" onclick="addFileFromUrl('stls/heart.stl')" value="Add Heart" />
+                <br />
+                Selected Mesh <input type="number" id="selectedMesh" min=-1 onchange="changeSelected()" value="-1" />
+                <input type="button" onclick="deleteMesh()" value="Delete" /> <br />
+
+                Position X :<input type="number" id="posX" value=0 step=0.1 onchange="moveObject()" />
+                Position Y :<input type="number" id="posY" value=0 step=0.1 onchange="moveObject()" />
+                <input type="button" onclick="centerX()" value="Center X" />
+                <input type="button" onclick="centerY()" value="Center Y" />
+                <input type="button" onclick="centerXY()" value="Center XY" />
+                <input type="button" onclick="centerAllX()" value="Center All X" />
+                <input type="button" onclick="centerAllY()" value="Center All Y" />
+                <input type="button" onclick="centerAllXY()" value="Center All XY" /><br />
+                Position Z :<input type="number" id="posZ" value=0 step=1.0 onchange="moveObject()" />
+                <input type="button" onclick="bringToFront()" value="Bring to Front" />
+                <input type="button" onclick="sendToBack()" value="Send to Back" /><br />
+                Rotation X : <input type="number" id="rotX" value=0 onchange="moveObject()" />
+                Rotation Y : <input type="number" id="rotY" value=0 onchange="moveObject()" />
+                Rotation Z : <input type="number" id="rotZ" value=0 onchange="moveObject()" /><br />
+                Scale : <input type="number" id="scaleAll" value=1 step=0.001 onchange="moveObject()" />
+                Scale X : <input type="number" id="scaleX" value=1 step=0.001 onchange="moveObject()" />
+                Scale Y : <input type="number" id="scaleY" value=1 step=0.001 onchange="moveObject()" />
+                Scale Z : <input type="number" id="scaleZ" value=1 step=0.001 onchange="moveObject()" /><br />
+            </div>
+            <div class="divInputCanvas">
+                <canvas id="inputCanvas" width=600 height=600 style='width:600px;height:600px'></canvas><br />
+            </div>
+        </div>
+        Far Clipping Plane : <input type="number" id="farclip" value=0.0 step=0.001 min=0 max=0.999" /><br />
+        <input type="button" onclick="scaleonly()" value="Just scale-> (Recommended for milling use)" />
+        <div>
+            AntiAliasing : <input type="checkbox" id="AntiAliasing" checked onchange="changeAntialiase()" />
+            Resolution : <input type="number" id="resolution" min=0.1 step=0.1 value=1 max=10 />
+            <span style="display:none;">Vertical Walls : <input type="checkbox" id="VertcalWalls" checked /></span>
+            Background Cutout : <input type="checkbox" id="cutbackground" />
+            Background Thickness : <input type="number" id="background" step=0.1 value=2 />
+            Just Top Surface : <input type="checkbox" id="justTop" />
+            <input type="button" onclick="snapshot()" value="Make Relief" />
+        </div>
+    </center>
+
+
+
+    <center>
+        <canvas id="outputCanvas" width=640 height=480 style='width:640px;height:480px'></canvas><br />
+        <div> <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XW7V5MMYV7848&source=url"
+                target="_blank"> Donate via Paypal, name your price </a> </div>
+        Export filename : <input type="text" id="outname" value="out" /><input type="button" onclick="exportMesh()"
+            value="export" />
+    </center>
+
+
+    
+
+        <div style="width:600px; margin: 0 auto;text-align: justify;">
+            <br /> <br /><br />
+            <h1>What is GistNoesis Stl to relief ? </h1>
+            Stl to relief is a free tool to transform 3d objects into relief. <br /> <br />
+            It takes meshes in STL format, which you can often find for free on <a
+                href="https://ultimaker.com/en/resources/21990-where-to-find-models" target="_blank">various sites</a>, and help you make bas-relief of desired dimensions.<br /> <br />
+            A bas relief is like an image but with a nice 3d effect. It makes objects that can be molded and casted
+            easily.<br /> <br />
+            With the development of 3d-printing and desktop CNC there are no longer excuses not to live surrounded by art everywhere.<br /> <br />
+            Bas-relief refine the essence of a 3d object into a small volume allowing for fast printing or milling time and low space occupancy<br /> <br />
+            This means that sculptures created with this tool make great wall decorations.<br /> <br />
+            You can make custom pictograms to tell emotional stories, it is a multi-millenial medium revisited by modern age, or fridge magnets...<br /> <br />
+            It is a great tool for 3d-printer and CNC mills <br /> <br />
+            If you don't have a 3d-printer or CNC you can use 3d printing services like Shapeways <br /><br />
+
+            <h1>Let's talk money ! </h1>   
+            This is proprietary software, let me explain why : <br /><br />
+            It is free to use for non-commercial usage but you must "attribute" us to help the discovery of this tool, and <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XW7V5MMYV7848&source=url"
+            target="_blank">donations</a> are appreciated <br /><br />
+            It is free to use for commercial usage but you must "attribute" us to help the discovery of this tool, and based on honor system a 10% mark-up <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XW7V5MMYV7848&source=url"
+            target="_blank">donation</a> for us is expected to help fund the development ecosystem <br /><br />
+            By "attribute" I mean provide your users with <br /><b>Made using : <a href="https://gistnoesis.github.io/StlToRelief">https://gistnoesis.github.io/StlToRelief</a></b><br /><br />
+            The code is on github, and can be run locally, feel free to star us or report issues there.<br /><br />
+            You are not allowed to serve this code, nor distribute it <br /><br />
+            It is to prevent a similar service which would save everything to the cloud, own your creations, add watermarks and API calls to 3d printing services,
+             take a commission and outgrow us with marketing spend, therefore preventing our sustainable development<br /><br />
+            If you use free 3d files as input don't forget to check their respective licenses.<br /><br />
+
+            <h1>Attributions :</h1>
+            Special thanks for the 3d models used on this page avaiable with a Creative-Commons Attribute free for commercial-use license  : <br/>
+            Fennec : <a href="https://www.thingiverse.com/thing:20748" target="_blank">https://www.thingiverse.com/thing:20748</a> <br/>
+            Gear : <a href="https://www.myminifactory.com/object/3d-print-planetary-gear-assembly-2525" target="_blank">https://www.myminifactory.com/object/3d-print-planetary-gear-assembly-2525</a>  <br/>
+            Dragon : <a href="https://www.myminifactory.com/object/3d-print-red-dragon-60976" target="_blank"> https://www.myminifactory.com/object/3d-print-red-dragon-60976</a><br/>
+            Alien : <a href="https://www.turbosquid.com/FullPreview/Index.cfm/ID/1366450" target="_blank" >https://www.turbosquid.com/FullPreview/Index.cfm/ID/1366450</a><br/>
+            Table :<a href="https://www.turbosquid.com/FullPreview/Index.cfm/ID/1385161" target="_blank"> https://www.turbosquid.com/FullPreview/Index.cfm/ID/1385161</a> <br/>
+            Heart : <a href="https://www.thingiverse.com/thing:246864" target="_blank">https://www.thingiverse.com/thing:246864</a> <br/>
+            <h1>How to use this tool ? </h1>
+            From top to bottom: <br /><br />
+            <h2>Display configuration :</h2> set the screen pixel size so you can measure on your screen with a digital calipher
+            the distances if needed.<br /><br />
+            <h2>Scene :</h2> You can clear the scene, import and export the scene.<br /><br />
+            <h2>Stock :</h2> Describe the shape of the output relief. StockZ is the height of the relief, the thickness of the
+            bottom plate is not included. Total Thickness = StockZ + bottomThickness<br /><br />
+            <h2>Add Objects :</h2> You can either load STL file from disk or use some of the provided meshes to play with.
+            <h2>Move Objects :</h2> Only one object at a time. You can use the mouse , touch interfaces, or fill the boxes.
+            <br />
+            <h2>Mouse commands :</h2> drag object to rotate, ctrl-drag or double-click drag to translate, shift-drag or scroll to
+            scale<br />
+            <h2>Touch commands :</h2> drag object to rotate, double-tap drag to translate, two-finger drag to scale. Be aware of
+            scroll hijacking (worst case if you can't zoom out do a "search on page")<br /><br />
+            <h2>Various centering buttons :</h2> help position the objects so that their borders are centered. <br /><br />
+            <h2>Z moves :</h2> helps bring hidden objects to the front when you can't select them.<br /><br />
+            <h2>Far clipping plane : </h2>Between 0 and 1 set how far is the background plane.<br /><br />
+            <h2>Just Scale :</h2> Fast and simple, don't do the geometric projection but does the job for milling import the file into Fusion360 and mill down to
+            the Z=0 plane<br />
+            <h2>Make Relief :</h2> For 3d-printers, do the geometric projection. <br /><br />
+            Use a rastering algorithm to avoid the numerical instabilities and quadratic cost of CSG algorithm, and it would also allow us advance features like adding draft angles.<br /><br />
+            The resolution is in triangle per unit, typically use 1 on mobile, 3 on laptop, 8 to remove artifacts before final export.<br /><br />
+            You can turn-off AntiAliasing to increase generation speed but with aliasing artifacts <br /><br />
+            You can choose if you want the background removed or not.<br /><br />
+            You can use negative background Thickness to generate negative reliefs<br /><br />
+            If you use color printing printing light surfaces at the top and dark surface at the bottom will help increase depth perception.<br /><br />
+            If you are not doing color printing you can try non-planar slicing to improve surface quality.<br />
+
+            <h2>Export : </h2>Export the result to stl. Ready to slice or generate toolpath. <br /><br />
+            <h2>Post-Processing :</h2> The output mesh is a closed surface per construction. <br /><br />
+            You can also use meshlab to reduce the triangle count Meshlab -> Filters -> Remeshing -> Quadratic Edge
+            Decimation -> (with preserve Topology)<br /><br />
+            The model has some zero-width triangles that meshlab won't unify properly so don't unify vertices when
+            meshlab propose it.<br /><br />
+            If the model has some imperfection you can smoothen them out with Meshlab -> Filters -> Smoothing ->
+            Laplacian Smooth (Surface preserve)<br /><br />
+            If you want just a shell of desired thickness (to reduce material costs while still guaranteeing
+            printability) you can use the checkbox "Top Surface", then either use CAD tools to thicken the surface
+            <br /><br />
+            or use meshlab -> Filters -> Remeshing -> Uniform Mesh Resampling but be aware that it is very slow.<br /><br />
+
+        </div>
+        <center><h3>Copyright 2020 GistNoesis</h3></center>
+    
+
+
+    <script src="js/three.js"></script>
+    <script src="js/STLLoader.js"></script>
+    <script src="js/STLExporter.js"></script>
+    <script src="js/utils.js"></script>
+    
+
+
+    <script id="outputVertexShader" type="x-shader/x-vertex">
+    uniform float stockz;
+    varying vec3 vColor;
+    varying vec3 vNormal;
+    void main()	{
+        vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * modelViewPosition; 
+        float w = clamp( position.z / abs(stockz), 0.,1. );
+        float sg = sign(stockz)*2.-1.;
+        w = w*sg+(1.-w)*(1.-sg);
+        vec3 color1 = vec3(0.0,0.0,1.0);
+        vec3 color2 = vec3(1.0,1.0,1.0);
+        vec3 light = vec3(0.3, 0.3, 1.0);
+        light = light*sg;
+        vNormal = normal;
+
+        // ensure it's normalized
+        light = normalize(light);
+        float dProd = max(0.3, dot(vNormal, light));
+        vec3 colorb = vec3(0.0,0.0,0.0);
+        vColor = mix(color1,color2,w)*dProd;
+    }
+    </script>
+
+    <script id="outputFragmentShader" type="x-shader/x-fragment">
+    varying vec3 vColor;
+    varying vec3 vNormal;
+    void main(){
+        gl_FragColor = vec4( vColor.rgb, 1.0 );
+    }
+</script>
+
+    <script>
+        //
+        /*
+float DecodeFloatRGBA( vec4 rgba ) {
+     "return rgba.r + rgba.g/127. + rgba.b/16383.;
+ }
+*/
+        // Our Javascript will go here.
+        var renderer = new THREE.WebGLRenderer({
+            canvas: document.getElementById("inputCanvas"),
+            preserveDrawingBuffer: false,
+            logarithmicDepthBuffer: true
+        });
+
+        resizeStock();
+        var initz = 1000;
+        var near = 1.0;
+        var far = 2000.0;
+        var scene = new THREE.Scene();
+        var ratio = window.innerWidth / window.innerHeight;
+
+        var size = 200.0;
+
+        var outputScene = new THREE.Scene();
+        var outputCanvas = document.getElementById("outputCanvas");
+        var w = outputCanvas.width;
+        var h = outputCanvas.height
+        var outputCamera = new THREE.PerspectiveCamera(75, w / h, 1, 1000);
+        //var outputCamera = new THREE.OrthographicCamera(- size, size, size / ratio, - size / ratio, near, far);
+        //outputScene.add(new THREE.AmbientLight(0x202020));
+        //var dl = new THREE.DirectionalLight(0xffffff, 1.0);
+        //dl.position.z = 100;
+        //dl.position.x = 50;
+        //outputScene.add(dl);
+
+        outputCamera.position.z = 100;
+        outputCamera.lookAt(new THREE.Vector3(0, 0, 0));
+
+        var canvas = document.getElementById("inputCanvas");
+        var w = canvas.width;
+        var h = canvas.height;
+
+        var camera = new THREE.OrthographicCamera(-w / 2, w / 2, h / 2, - h / 2, near, far);
+        camera.position.z = initz;
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
+        resizeStock();
+
+        var antialiase = document.getElementById("AntiAliasing").checked;
+
+        function changeAntialiase() {
+            antialiase = document.getElementById("AntiAliasing").checked;
+        }
+
+        var outputrenderer = new THREE.WebGLRenderer({
+            canvas: outputCanvas,
+            //preserveDrawingBuffer: true,
+            logarithmicDepthBuffer: true
+        });
+        //renderer.setSize(window.innerWidth, window.innerHeight);
+        //document.body.appendChild(renderer.domElement);
+
+        var light = new THREE.AmbientLight(0x404040); // soft white light
+        scene.add(light);
+
+        var directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        directionalLight.position.x = 0;
+        directionalLight.position.y = 0;
+        directionalLight.position.z = 1;
+        scene.add(directionalLight);
+
+
+        var geometry = new THREE.SphereGeometry(20, 10, 10);
+
+
+
+        uniforms = {
+            resolution: { type: "v2", value: new THREE.Vector2() },
+            near: { type: "f", value: near },
+            far: { type: "f", value: far }
+
+        };
+
+
+        var outunif = {
+            stockz: { type: "f", value: 10 }
+        };
+
+        var outmat = new THREE.ShaderMaterial({
+            uniforms: outunif,
+            vertexShader: document.getElementById('outputVertexShader').textContent,
+            fragmentShader: document.getElementById('outputFragmentShader').textContent
+        });
+
+        /*
+        var materialNormal = new THREE.MeshPhongMaterial({
+            color: 0xFFFF00,    // red (can also use a CSS color string here)
+            flatShading: false//,
+        });
+
+        var materialSelected = new THREE.MeshPhongMaterial({
+            color: 0xFF0000,    // red (can also use a CSS color string here)
+            flatShading: false//,
+        });
+        */
+        var materialNormal = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+        var materialSelected = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        /*
+        var outmat = new THREE.MeshPhongMaterial({
+            color: 0x0000FF,    // blue (can also use a CSS color string here)
+            flatShading: true//,
+        });*/
+
+        //var cube = new THREE.Mesh(geometry, outmat);
+
+        addOutputFromUrl("buckyFennecLowQuality.stl");
+        addFileFromUrl('stls/Fennec_Fox.stl');
+        //outputScene.add(cube);
+
+        var meshes = [];
+
+        var mesh = null;
+        var outmesh = null;
+        var exportrotation = new THREE.Vector3(0, 0, 0);
+
+        var raycaster = new THREE.Raycaster();
+
+
+
+        var animate = function () {
+            requestAnimationFrame(animate);
+
+
+            renderer.render(scene, camera);
+            outputrenderer.render(outputScene, outputCamera);
+        };
+
+        animate();
+
+        var mouseDown = false;
+        var mouseX = 0;
+        var mouseY = 0;
+
+        function onMouseMove(evt, proc, proc2) {
+            if (!mouseDown) {
+                return;
+            }
+
+            evt.preventDefault();
+
+            var deltaX = evt.clientX - mouseX,
+                deltaY = evt.clientY - mouseY;
+            mouseX = evt.clientX;
+            mouseY = evt.clientY;
+
+            proc(deltaX, deltaY, evt);
+        }
+
+        function onMouseDown(evt, md) {
+            evt.preventDefault();
+
+            mouseDown = true;
+            mouseX = evt.clientX;
+            mouseY = evt.clientY;
+            md(evt);
+        }
+
+        function onMouseUp(evt) {
+            evt.preventDefault();
+
+            mouseDown = false;
+        }
+
+        var clickTimer = null;
+        var doubleClick = false;
+
+        function touchStart() {
+            if (clickTimer == null) {
+                clickTimer = setTimeout(function () {
+                    clickTimer = null;
+                    //alert("single");
+
+                }, 500)
+            } else {
+                clearTimeout(clickTimer);
+                clickTimer = null;
+                doubleClick = true;
+                //alert("double");
+
+            }
+        }
+
+
+        function addMouseHandler(canvas, proc, md) {
+
+            canvas.addEventListener('mousemove', function (e) {
+                e.ctrlKey2 = e.ctrlKey || doubleClick;
+                onMouseMove(e, proc);
+            }, false);
+
+            canvas.addEventListener('mousedown', function (e) {
+                touchStart();
+                e.ctrlKey2 = e.ctrlKey || doubleClick;
+                onMouseDown(e, md);
+            }, false);
+
+            canvas.addEventListener('mouseup', function (e) {
+                onMouseUp(e);
+                doubleClick = false;
+            }, false);
+
+            canvas.addEventListener("touchstart", function (e) {
+                e.preventDefault();
+
+                mousePos = getTouchPos(canvas, e);
+                var touch = e.touches[0];
+                var mouseEvent = new MouseEvent("mousedown", {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+
+                });
+                //document.getElementById("outputlog").innerText = touch.clientX + " " + touch.clientY + " " + touch.offsetX + " " + touch.offsetY;
+                canvas.dispatchEvent(mouseEvent);
+            }, false);
+            canvas.addEventListener("touchend", function (e) {
+                e.preventDefault();
+                doubleClick = false;
+                var mouseEvent = new MouseEvent("mouseup", {});
+                canvas.dispatchEvent(mouseEvent);
+            }, false);
+            canvas.addEventListener("touchmove", function (e) {
+                e.preventDefault();
+                //document.getElementById("outputlog").innerText = doubleClick;
+                var touch = e.touches[0];
+                var mouseEvent = new MouseEvent("mousemove", {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    ctrlKey: doubleClick,
+                    shiftKey: e.touches.length == 2
+                });
+                canvas.dispatchEvent(mouseEvent);
+            }, false);
+
+        }
+
+        function getTouchPos(canvasDom, touchEvent) {
+            var rect = canvasDom.getBoundingClientRect();
+            //document.getElementById("outputlog2").innerText = rect.left + " " + rect.top;
+            //- rect.left
+            //- rect.top
+
+            return {
+                x: touchEvent.touches[0].clientX - rect.left,
+                y: touchEvent.touches[0].clientY - rect.top
+            };
+        }
+
+        // Prevent scrolling when touching the canvas
+        document.body.addEventListener("touchstart", function (e) {
+            if (e.target == canvas || e.target == outpuCanvas) {
+                e.preventDefault();
+            }
+        }, false);
+        document.body.addEventListener("touchend", function (e) {
+            if (e.target == canvas || e.target == outpuCanvas) {
+                e.preventDefault();
+            }
+        }, false);
+        document.body.addEventListener("touchmove", function (e) {
+            if (e.target == canvas || e.target == outpuCanvas) {
+                e.preventDefault();
+            }
+        }, false);
+
+        function resizeStock() {
+            var stockx = document.getElementById("stockX").valueAsNumber;
+            var stocky = document.getElementById("stockY").valueAsNumber;
+            var ratio = stockx / stocky;
+
+            var maxSize = 300;
+            var canvas = document.getElementById("inputCanvas");
+
+            /*
+            if (ratio > 1.0) {
+                canvas.width = maxSize;
+                canvas.height = maxSize / ratio;
+
+            }
+            else {
+                canvas.width = maxSize * ratio;
+                canvas.height = maxSize;
+            }
+            */
+            var invPixelSize = parseFloat(document.getElementById("screenResolution").valueAsNumber);
+            var maxWidth = parseFloat(document.getElementById("screenResolutionX").valueAsNumber);
+            var maxHeight = parseFloat(document.getElementById("screenResolutionY").valueAsNumber);
+
+            var clampedInvPixelSize = Math.min(invPixelSize, maxWidth / stockx * invPixelSize, invPixelSize, maxHeight / stocky * invPixelSize);
+
+            var currentScale = Math.round(10000 * clampedInvPixelSize / invPixelSize) / 100;
+
+            document.getElementById("currentScreenResolution").textContent = currentScale + "%";
+
+            canvas.width = stockx * clampedInvPixelSize;
+            canvas.height = stocky * clampedInvPixelSize;
+
+
+
+            canvas.style.width = canvas.width + "px";
+            canvas.style.height = canvas.height + "px";
+
+            var size = 200.0;
+
+            var w = stockx;
+            var h = stocky;
+            //
+            //camera.position.x = 0;
+            //camera.position.y = 0;
+            if (camera != undefined) {
+                camera = new THREE.OrthographicCamera(-w / 2, w / 2, h / 2, -h / 2, near, far);
+                camera.position.z = initz;
+                //
+                //camera.left = -w/2;
+                //camera.right = w/2;
+                //camera.top = h / 2;
+                //camera.bottom = -h / 2;
+
+                //camera.translateX(w/2);
+                //camera.translateY(h/2);
+                camera.lookAt(new THREE.Vector3(0, 0, 0));
+                //camera.setViewOffset()
+                camera.updateProjectionMatrix();
+
+                outputCamera.position.z = Math.max(stockx, stocky) * 0.8;
+                outputCamera.updateProjectionMatrix();
+
+            }
+            renderer.setSize(clampedInvPixelSize * w, clampedInvPixelSize * h);
+
+        }
+
+        function inputCanvasMouseDownHandler(evt) {
+            var canvas = document.getElementById("inputCanvas");
+
+            var mouse = { x: (evt.offsetX / canvas.width) * 2 - 1, y: - (evt.offsetY / canvas.height) * 2 + 1 };
+            //document.getElementById("outputlog3").innerText = mouse.x + " " + mouse.y;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            // calculate objects intersecting the picking ray
+            var intersects = raycaster.intersectObjects(scene.children);
+            if (intersects.length == 0) {
+                document.getElementById("selectedMesh").value = -1;
+                changeSelected();
+                return;
+            }
+
+            for (var i = 0; i < intersects.length; i++) {
+                for (j = 0; j < meshes.length; j++) {
+                    if (intersects[i].object == meshes[j]) {
+                        document.getElementById("selectedMesh").value = j;
+                        changeSelected();
+                        break;
+                    }
+                }
+                break;
+            }
+
+
+        }
+
+        function handleScale(deltaY) {
+
+            mesh.scale.x += deltaY / 1000.0;
+            mesh.scale.y += deltaY / 1000.0;
+            mesh.scale.z += deltaY / 1000.0;
+
+            var s = Math.max(mesh.scale.x, mesh.scale.y, mesh.scale.z);
+            if (Math.abs(s) < 1e-4) {
+                s = 1;
+            }
+            document.getElementById("scaleAll").value = Math.round(1000 * s) / 1000.0;
+            document.getElementById("scaleX").value = Math.round(1000 * mesh.scale.x / s) / 1000.0;
+            document.getElementById("scaleY").value = Math.round(1000 * mesh.scale.y / s) / 1000.0;
+            document.getElementById("scaleZ").value = Math.round(1000 * mesh.scale.z / s) / 1000.0;
+        }
+
+        function rotateInputScene(deltaX, deltaY, evt) {
+
+            if (mesh != null) {
+                if (evt.shiftKey) {
+                    handleScale(deltaY);
+                }
+                else if (evt.ctrlKey2 == false) {
+                    var deltaRotationQuaternion = new THREE.Quaternion()
+                        .setFromEuler(new THREE.Euler(
+                            deltaY / 200,
+                            deltaX / 200,
+                            0,
+                            'XYZ'
+                        ));
+
+                    mesh.quaternion.multiplyQuaternions(deltaRotationQuaternion, mesh.quaternion);
+
+                    //mesh.rotation.y += deltaX / 500;
+                    //mesh.rotation.x += deltaY / 500;
+
+                    document.getElementById("rotX").value = Math.round(360.0 * mesh.rotation.x / (2 * Math.PI));
+                    document.getElementById("rotY").value = Math.round(360.0 * mesh.rotation.y / (2 * Math.PI));
+                    document.getElementById("rotZ").value = Math.round(360.0 * mesh.rotation.z / (2 * Math.PI));
+                }
+                else {
+                    mesh.position.x += 2.0 * deltaX / 10.0;
+                    mesh.position.y -= 2.0 * deltaY / 10.0;
+                    document.getElementById("posX").value = Math.round(mesh.position.x * 10) / 10;
+                    document.getElementById("posY").value = Math.round(mesh.position.y * 10) / 10;
+                }
+                moveObject();
+            }
+
+        }
+        function rotateOutputScene(deltaX, deltaY, evt) {
+            if (outmesh != null) {
+                outmesh.rotation.y += deltaX / 500;
+                outmesh.rotation.x += deltaY / 500;
+            }
+        }
+
+        function changeSelected() {
+            var ind = document.getElementById("selectedMesh").valueAsNumber;
+            var showDepthBuffer = false;//|| document.getElementById("materialDepth").checked;
+            if (showDepthBuffer == false) {
+                for (var i = 0; i < meshes.length; i++) {
+                    if (i == ind) {
+                        meshes[i].material = materialSelected;
+                    }
+                    else {
+                        meshes[i].material = materialNormal;
+                    }
+                }
+            }
+
+            //console.log("selected :"+ ind);
+            if (ind >= meshes.length || ind < 0) {
+                mesh = null;
+                return;
+            }
+            mesh = meshes[ind];
+            document.getElementById("posX").value = mesh.position.x;
+            document.getElementById("posY").value = mesh.position.y;
+            document.getElementById("posZ").value = mesh.position.z;
+            document.getElementById("rotX").value = Math.round(360.0 * mesh.rotation.x / (2 * Math.PI));
+            document.getElementById("rotY").value = Math.round(360.0 * mesh.rotation.y / (2 * Math.PI));
+            document.getElementById("rotZ").value = Math.round(360.0 * mesh.rotation.z / (2 * Math.PI));
+            var s = Math.max(mesh.scale.x, mesh.scale.y, mesh.scale.z);
+            document.getElementById("scaleAll").value = Math.round(1000 * s) / 1000.0;
+            document.getElementById("scaleX").value = Math.round(1000 * mesh.scale.x / s) / 1000.0;
+            document.getElementById("scaleY").value = Math.round(1000 * mesh.scale.y / s) / 1000.0;
+            document.getElementById("scaleZ").value = Math.round(1000 * mesh.scale.z / s) / 1000.0;
+        }
+
+        function deleteMesh() {
+            var ind = document.getElementById("selectedMesh").valueAsNumber;
+            if (ind >= 0 && ind < meshes.length) {
+                scene.remove(meshes[ind]);
+                meshes[ind].geometry.dispose();
+                meshes.splice(ind, 1);
+                document.getElementById("selectedMesh").value = -1;
+                changeSelected();
+            }
+
+        }
+
+        function computeTransformedWorldBoundingBox(mesh) {
+            var xmin = 1e6;
+            var xmax = -1e6;
+            var ymin = 1e6;
+            var ymax = -1e6;
+            var zmin = 1e6;
+            var zmax = -1e6;
+
+            var geometry = new THREE.Geometry();
+            geometry.fromBufferGeometry(mesh.geometry);
+            var verts = geometry.vertices;
+            var faces = geometry.faces;
+
+
+            for (var i = 0; i < verts.length; i++) {
+                var vector = new THREE.Vector3(verts[i].x, verts[i].y, verts[i].z);
+                vector.applyMatrix4(mesh.matrixWorld);
+                verts[i] = vector;
+                var x = verts[i].x;
+                var y = verts[i].y;
+                var z = verts[i].z;
+                if (x > xmax)
+                    xmax = x;
+                if (x < xmin)
+                    xmin = x;
+                if (y > ymax)
+                    ymax = y;
+                if (y < ymin)
+                    ymin = y;
+                if (z > zmax)
+                    zmax = z;
+                if (z < zmin)
+                    zmin = z;
+            }
+            geometry.dispose();
+            return { xmin: xmin, xmax: xmax, ymin: ymin, ymax: ymax, zmin: zmin, zmax: zmax };
+        }
+
+        function centerX() {
+            var ind = document.getElementById("selectedMesh").valueAsNumber;
+            if (ind >= meshes.length || ind < 0) {
+                return;
+            }
+
+            var bb = computeTransformedWorldBoundingBox(meshes[ind]);
+            meshes[ind].position.x = Math.round(10.0 * (meshes[ind].position.x - (bb.xmax + bb.xmin) / 2.0)) / 10.0;
+            changeSelected();
+        }
+
+        function centerY() {
+            var ind = document.getElementById("selectedMesh").valueAsNumber;
+            if (ind >= meshes.length || ind < 0) {
+                return;
+            }
+
+            var bb = computeTransformedWorldBoundingBox(meshes[ind]);
+            meshes[ind].position.y = Math.round(10.0 * (meshes[ind].position.y - (bb.ymax + bb.ymin) / 2.0)) / 10.0;
+            changeSelected();
+        }
+
+
+        function centerXY() {
+            var ind = document.getElementById("selectedMesh").valueAsNumber;
+            if (ind >= meshes.length || ind < 0) {
+                return;
+            }
+
+            var bb = computeTransformedWorldBoundingBox(meshes[ind]);
+            meshes[ind].position.y = Math.round(10.0 * (meshes[ind].position.y - (bb.ymax + bb.ymin) / 2.0)) / 10.0;
+            meshes[ind].position.x = Math.round(10.0 * (meshes[ind].position.x - (bb.xmax + bb.xmin) / 2.0)) / 10.0;
+            changeSelected();
+        }
+
+
+
+        function fuseBB(bb1, bb2) {
+            return {
+                xmin: Math.min(bb1.xmin, bb2.xmin),
+                xmax: Math.max(bb1.xmax, bb2.xmax),
+                ymin: Math.min(bb1.ymin, bb2.ymin),
+                ymax: Math.max(bb1.ymax, bb2.ymax),
+                zmin: Math.min(bb1.zmin, bb2.zmin),
+                zmax: Math.max(bb1.zmax, bb2.zmax)
+            };
+
+        }
+
+        function computeTransformedBounds() {
+            var bb = computeTransformedWorldBoundingBox(meshes[0]);
+            for (var i = 1; i < meshes.length; i++) {
+                bb = fuseBB(bb, computeTransformedWorldBoundingBox(meshes[i]));
+            }
+            return bb;
+        }
+
+        function bringToFront() {
+            if (meshes.length <= 1) return;
+            var bb = computeTransformedBounds();
+
+            var ind = document.getElementById("selectedMesh").valueAsNumber;
+            if (ind >= meshes.length || ind < 0) {
+                return;
+            }
+
+            var bb = null;
+            for (var i = 0; i < meshes.length; i++) {
+                if (i == ind) continue;
+                if (bb == null) {
+                    bb = computeTransformedWorldBoundingBox(meshes[i])
+                }
+                else {
+                    bb = fuseBB(bb, computeTransformedWorldBoundingBox(meshes[i]));
+                }
+            }
+
+            var bbind = computeTransformedWorldBoundingBox(meshes[ind]);
+            meshes[ind].position.z = Math.round(meshes[ind].position.z + bb.zmax - bbind.zmin);
+
+
+            changeSelected();
+        }
+
+        function sendToBack() {
+            if (meshes.length <= 1) return;
+            var bb = computeTransformedBounds();
+
+            var ind = document.getElementById("selectedMesh").valueAsNumber;
+            if (ind >= meshes.length || ind < 0) {
+                return;
+            }
+
+            var bb = null;
+            for (var i = 0; i < meshes.length; i++) {
+                if (i == ind) continue;
+                if (bb == null) {
+                    bb = computeTransformedWorldBoundingBox(meshes[i])
+                }
+                else {
+                    bb = fuseBB(bb, computeTransformedWorldBoundingBox(meshes[i]));
+                }
+            }
+
+            var bbind = computeTransformedWorldBoundingBox(meshes[ind]);
+            meshes[ind].position.z = Math.round(meshes[ind].position.z + bb.zmin - bbind.zmax);
+
+
+            changeSelected();
+        }
+
+        function centerAllXY() {
+            if (meshes.length <= 0) return;
+            var bb = computeTransformedBounds();
+
+            for (var i = 0; i < meshes.length; i++) {
+                meshes[i].position.y = Math.round(10.0 * (meshes[i].position.y - (bb.ymax + bb.ymin) / 2.0)) / 10.0;
+                meshes[i].position.x = Math.round(10.0 * (meshes[i].position.x - (bb.xmax + bb.xmin) / 2.0)) / 10.0;
+            }
+
+            changeSelected();
+        }
+
+        function centerAllX() {
+            if (meshes.length <= 0) return;
+            var bb = computeTransformedBounds();
+
+            for (var i = 0; i < meshes.length; i++) {
+                meshes[i].position.x = Math.round(10.0 * (meshes[i].position.x - (bb.xmax + bb.xmin) / 2.0)) / 10.0;
+            }
+
+            changeSelected();
+        }
+
+        function centerAllY() {
+            if (meshes.length <= 0) return;
+            var bb = computeTransformedBounds();
+
+            for (var i = 0; i < meshes.length; i++) {
+                meshes[i].position.y = Math.round(10.0 * (meshes[i].position.y - (bb.ymax + bb.ymin) / 2.0)) / 10.0;
+            }
+
+            changeSelected();
+        }
+
+
+        function moveObject() {
+            var px = document.getElementById("posX").valueAsNumber;
+            var py = document.getElementById("posY").valueAsNumber;
+            var pz = document.getElementById("posZ").valueAsNumber;
+            var rx = document.getElementById("rotX").valueAsNumber;
+            var ry = document.getElementById("rotY").valueAsNumber;
+            var rz = document.getElementById("rotZ").valueAsNumber;
+            var s = document.getElementById("scaleAll").valueAsNumber;
+            var sx = document.getElementById("scaleX").valueAsNumber;
+            var sy = document.getElementById("scaleY").valueAsNumber;
+            var sz = document.getElementById("scaleZ").valueAsNumber;
+            if (mesh != null) {
+                mesh.position.x = px;
+                mesh.position.y = py;
+                mesh.position.z = pz;
+                mesh.rotation.x = 2 * Math.PI * rx / 360.0;
+                mesh.rotation.y = 2 * Math.PI * ry / 360.0;
+                mesh.rotation.z = 2 * Math.PI * rz / 360.0;
+                mesh.scale.x = s * sx;
+                mesh.scale.y = s * sy;
+                mesh.scale.z = s * sz;
+            }
+
+        }
+
+
+        function outpuCanvasMouseDownHandler(evt) {
+
+        }
+
+        addMouseHandler(document.getElementById("inputCanvas"), rotateInputScene, inputCanvasMouseDownHandler);
+        addMouseHandler(document.getElementById("outputCanvas"), rotateOutputScene, outpuCanvasMouseDownHandler);
+
+        document.body.addEventListener("wheel", function (e) {
+            if (e.target == canvas) {
+                e.preventDefault();
+            }
+        }, false);
+
+        document.getElementById("inputCanvas").addEventListener('wheel', function (event) {
+            if (mesh == null)
+                return;
+            handleScale(event.deltaY);
+            moveObject();
+            return false;
+        }, false);
+
+        function clearScene() {
+            removeAllMesh(scene);
+            removeAllMesh(outputScene);
+            /*
+            for( var i = 0 ;i < meshes.length ; i++)
+            {
+                meshes[i].dispose();
+            }*/
+            meshes = [];
+            mesh = null;
+            outmesh = null;
+
+        }
+
+        function addMesh(geometry, center = true) {
+            if (center) {
+                geometry.center();
+            }
+            mesh = new THREE.Mesh(geometry, materialNormal);
+            //removeAllMesh(scene);
+            meshes.push(mesh);
+            scene.add(mesh);
+            document.getElementById("selectedMesh").value = meshes.length - 1;
+            changeSelected();
+
+        }
+
+        function readFile(file) {
+            console.log("read file");
+            var fr = new FileReader();
+            fr.onload = () => {
+                console.log("onload");
+                var data = fr.result;
+                //console.log(data);
+                var loader = new THREE.STLLoader();
+                var geometry = loader.parse(data);
+                addMesh(geometry);
+
+                //var mesh2 = new THREE.Mesh(geometry, outmat);
+                //outputScene.add(mesh2);
+            };
+            fr.readAsArrayBuffer(file);
+        }
+
+        function addFileFromUrl(url) {
+            var loader = new THREE.STLLoader();
+            loader.load(url, addMesh);
+        }
+
+        function addOutputFromUrl(url) {
+            var loader = new THREE.STLLoader();
+            loader.load(url, function (geom) {
+                var mymesh = new THREE.Mesh(geom, outmat);
+                outmesh = mymesh;
+                exportrotation = new THREE.Vector3(outmesh.rotation.x, outmesh.rotation.y, outmesh.rotation.z);
+                outputScene.add(outmesh);
+            }
+            );
+        }
+
+
+
+        function read(input) {
+            console.log("read : ");
+            console.log(input);
+            readFile(input.files[0]);
+            input.value = "";
+        }
+
+
+        function importInputScene(input) {
+            console.log("importInputScene");
+            var fr = new FileReader();
+            fr.onload = () => {
+                console.log("onImportInputScene");
+                var data = fr.result;
+                console.log(data);
+                clearScene();
+                var json = JSON.parse(data);
+
+                document.getElementById("stockX").value = json.stock.x;
+                document.getElementById("stockY").value = json.stock.y;
+                document.getElementById("stockZ").value = json.stock.z;
+                resizeStock();
+
+                if( json.farclip != undefined)
+                {
+                    document.getElementById("farclip").value = parseFloat(json.farclip);
+                }
+
+                for (var i = 0; i < json.meshesData.length; i++) {
+                    var loader = new THREE.STLLoader();
+                    console.log(json.meshesData[i]);
+                    var ui8a = Uint8Array.from(json.meshesData[i]);
+                    var ab = ui8a.buffer;
+                    var geometry = loader.parse(ab);
+                    addMesh(geometry, false);
+                    console.log("meshesTransform ");
+
+                    var mt = json.meshesTransform[i];
+                    console.log(mt);
+                    //meshes[meshes.length-1].copy(mw);
+                    //meshes[meshes.length-1].matrixAutoUpdate = false
+                    //meshes[meshes.length-1].matrixWorld.set(mw.elements);
+                    //meshes[meshes.length-1].matrixWorldNeedsUpdate = true;
+
+                    meshes[meshes.length - 1].position.x = mt.x;
+                    meshes[meshes.length - 1].position.y = mt.y;
+                    meshes[meshes.length - 1].position.z = mt.z;
+
+                    meshes[meshes.length - 1].rotation.x = mt.rx;
+                    meshes[meshes.length - 1].rotation.y = mt.ry;
+                    meshes[meshes.length - 1].rotation.z = mt.rz;
+
+                    meshes[meshes.length - 1].scale.x = mt.sx;
+                    meshes[meshes.length - 1].scale.y = mt.sy;
+                    meshes[meshes.length - 1].scale.z = mt.sz;
+
+                    //meshes[meshes.length-1].matrixAutoUpdate = false;
+                    //meshes[meshes.length-1].matrixWorld.set(mw);
+                    //meshes[meshes.length-1].updateMatrixWorld();
+                    //meshes[meshes.length-1].matrixAutoUpdate = true;
+
+                }
+                document.getElementById("outname").value = file.name.split('.').slice(0, -1).join('.');
+            };
+            var file = input.files[0];
+            fr.readAsText(file);
+        }
+
+        function exportInputScene() {
+            console.log("exportInputScene");
+            var exporter = new THREE.STLExporter();
+            var out = {};
+            out.version = "0.1";
+            out.stock = { x: document.getElementById("stockX").valueAsNumber, y: document.getElementById("stockY").valueAsNumber, z: document.getElementById("stockZ").valueAsNumber };
+            out.meshesData = [];
+            out.meshesTransform = [];
+            out.farclip = document.getElementById("farclip").valueAsNumber;
+            console.log("meshes length : " + meshes.length);
+            for (var i = 0; i < meshes.length; i++) {
+                var mw = meshes[i].matrixWorld;
+                var ident = new THREE.Matrix4();
+                //We could go faster by just exporting the untransformed geometry 
+                //but we want to maximize code reuse
+                meshes[i].matrixWorld = ident;
+                var meshdata = exporter.parse(meshes[i], { binary: true });
+                meshes[i].matrixWorld = mw;
+                var byteArray = new Uint8Array(meshdata.buffer);
+                var arr = Array.from(byteArray);
+                out.meshesData.push(arr);
+                out.meshesTransform.push({
+                    x: meshes[i].position.x, y: meshes[i].position.y, z: meshes[i].position.z,
+                    rx: meshes[i].rotation.x, ry: meshes[i].rotation.y, rz: meshes[i].rotation.z,
+                    sx: meshes[i].scale.x, sy: meshes[i].scale.y, sz: meshes[i].scale.z
+                });
+            }
+
+            var json = JSON.stringify(out);
+
+            var name = document.getElementById("inputSceneName").value;
+            download(json, name + ".scene", 'text/plain');
+        }
+
+
+        function getInd(i, j, width, offset = 0) {
+            return offset + i * width + j;
+        }
+
+        function download(content, fileName, contentType) {
+            var a = document.createElement("a");
+            var file = new Blob([content], { type: contentType });
+            a.href = URL.createObjectURL(file);
+            a.download = fileName;
+            a.click();
+        }
+
+
+        var saveByteArray = (function () {
+            var a = document.createElement("a");
+            document.body.appendChild(a);
+            a.style = "display: none";
+            return function (data, name) {
+                var blob = new Blob(data, { type: "octet/stream" }),
+                    url = window.URL.createObjectURL(blob);
+                a.href = url;
+                a.download = name;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            };
+        }());
+
+        function capLength(x, y, l) {
+            var ll = Math.sqrt(x * x + y * y);
+            if (ll > 0.8) {
+                //console.log(x + " " + y + " : " + ll);
+            }
+            if (ll > l) {
+                var out = { x: x * l / ll, y: y * l / ll };
+                //console.log(out);
+                return out;
+            }
+            return { x: x, y: y };
+        }
+
+        function erodeVertices(verts, height, width) {
+            var out = new Array();
+            var neighbors = new Array();
+            var wneigh = new Array();
+
+            /*
+            for (var i = -1; i <= 1; i++) {
+                for (var j = -1; j <= 1; j++) {
+                    neighbors.push({ x: j, y: i });
+                }
+            }
+            */
+
+            //wneigh[4] = 0.1;
+
+
+            neighbors.push({ x: -1, y: 0 });
+            neighbors.push({ x: 1, y: 0 });
+            neighbors.push({ x: 0, y: 0 });
+            neighbors.push({ x: 0, y: -1 });
+            neighbors.push({ x: 0, y: 1 });
+
+
+
+            for (var i = 0; i < neighbors.length; i++) {
+                wneigh.push(1.0);
+            }
+            //wneigh[2] = 3.0;
+
+
+            var bz = 0.1;
+            var constrain = false;
+            var onborder = new Array();
+            var co = 0;
+            for (var i = 0; i < height; i++) {
+                for (var j = 0; j < width; j++) {
+                    var ob = false;
+                    for (var k = 0; k < neighbors.length; k++) {
+                        var ii = i + neighbors[k].y;
+                        var jj = j + neighbors[k].x;
+                        if (ii >= 0 && ii < height && jj >= 0 && jj < width) {
+                            var dz = verts[getInd(i, j, width)].z - verts[getInd(ii, jj, width)].z
+                            if (Math.abs(dz) > bz) {
+                                ob = true;
+                                co++;
+                                break;
+                            }
+                        }
+                    }
+                    onborder.push(ob);
+                }
+            }
+            //console.log("nb points on border " + co);
+
+            var borderlength = 0.0;
+            var penalty = 0.0;
+            var alpha = -0.1;
+            var beta = -1.0;
+            for (var i = 0; i < height; i++) {
+                for (var j = 0; j < width; j++) {
+                    var w = 0.1;
+                    var s = w;
+                    var val = new THREE.Vector3(verts[getInd(i, j, width)].x, verts[getInd(i, j, width)].y, verts[getInd(i, j, width)].z);
+                    if (onborder[getInd(i, j, width)]) {
+                        var dx = verts[getInd(i, j, width)].x - j;
+                        var dy = verts[getInd(i, j, width)].y - i;
+                        var penx = Math.abs(dx) - 0.4;
+                        var peny = Math.abs(dy) - 0.4;
+                        if (penx > 0.0) {
+                            val.x += beta * Math.sign(dx) * penx;
+                            penalty += penx;
+                        }
+                        if (peny > 0.0) {
+                            penalty += peny;
+                            val.y += beta * Math.sign(dy) * peny;
+                        }
+                        for (var k = 0; k < neighbors.length; k++) {
+                            var ii = i + neighbors[k].y;
+                            var jj = j + neighbors[k].x;
+                            if (ii >= 0 && ii < height && jj >= 0 && jj < width) {
+                                var dz = verts[getInd(i, j, width)].z - verts[getInd(ii, jj, width)].z;
+                                //Math.abs(dz) < 3*bz && 
+                                if (Math.abs(dz) < 3 * bz && onborder[getInd(ii, jj, width)] == true) {
+                                    var xx = (verts[getInd(ii, jj, width)].x - verts[getInd(i, j, width)].x);
+                                    var yy = (verts[getInd(ii, jj, width)].y - verts[getInd(i, j, width)].y);
+                                    borderlength += xx * xx + yy * yy;
+                                    val.x -= alpha * xx;
+                                    val.y -= alpha * yy;
+
+
+                                    //val.z += 0.2 * (verts[getInd(ii, jj, width)].z - verts[getInd(i, j, width)].z);
+                                    //s += wneigh[k];
+                                }
+                            }
+                        }
+                        //val.z = 12.0;
+                    }
+                    //val.x /= s;
+                    //val.y /= s;
+                    //val.z /= s;
+
+                    if (constrain) {
+                        var x = j;
+                        var y = i;
+                        var offx = x - val.x;
+                        var offy = y - val.y;
+                        var ll = Math.abs(offx) + Math.abs(offy);
+                        var l = 0.5;
+                        var ptx = offx;
+                        var pty = offy;
+                        if (ll > l) {
+                            ptx *= l / ll;
+                            pty *= l / ll;
+                            var ll2 = Math.abs(ptx) + Math.abs(pty);
+                            //console.log("x : " + x + " y : "+ y + " ptx " + ptx + " pty " + pty + " ll2 " + ll2) ;
+                        }
+
+                        val.x = x + ptx;
+                        val.y = y + pty;
+                        if (ll > l) {
+                            //console.log("val.x : " + val.x + " val.y : "+ val.y );
+                        }
+                        //var alpha = 0.0;
+                        //val.x = alpha * val.x + (1 - alpha) * (x + ptx);
+                        //val.y = alpha * val.y + (1 - alpha) * (y + pt.y);
+                    }
+                    out.push(val);
+                }
+            }
+
+
+            console.log("total border length : " + borderlength + " penalty : " + penalty);
+            return out;
+        }
+
+        function clamp(num, min, max) {
+            return num <= min ? min : num >= max ? max : num;
+        }
+
+
+        function addVerticalQuad(out, i0, j0, i1, j1, height, width, nbTopPoints) {
+            if (i0 < 0 || j0 < 0 || i1 < 0 || j1 < 0 || i0 >= height || j0 >= width || i1 >= height || j1 >= width)
+                return;
+
+            out.push(new THREE.Face3(getInd(i0, j0, width, 0), getInd(i0, j0, width, nbTopPoints), getInd(i1, j1, width, 0)));
+            out.push(new THREE.Face3(getInd(i0, j0, width, nbTopPoints), getInd(i1, j1, width, nbTopPoints), getInd(i1, j1, width, 0)));
+        }
+
+
+        function distv2(v1, v2) {
+            var dx = v2.x - v1.x;
+            var dy = v2.y - v1.y;
+            var dz = v2.z - v1.z;
+            return dx * dx + dy * dy + dz * dz;
+        }
+
+        function dist2Dv2(v1, v2) {
+            var dx = v2.x - v1.x;
+            var dy = v2.y - v1.y;
+            return dx * dx + dy * dy;
+        }
+
+        function fieldToGeometry(field, stockSize, backgroundThichkness) {
+            var xfield = field.data.x;
+            var yfield = field.data.y;
+            var zfield = field.data.z;
+            var width = field.width;
+            var height = field.height;
+
+
+
+            var geometry = new THREE.Geometry();
+
+            var co = 0;
+
+            var nbTopPoints = height * width;
+
+            for (var i = 0; i < height; i++) {
+                for (var j = 0; j < width; j++) {
+                    geometry.vertices.push(new THREE.Vector3(xfield[co], yfield[co], zfield[co]));
+                    co++;
+                }
+            }
+
+            /*
+            nberosion = 000;
+            for (var i = 0; i < nberosion; i++) {
+                geometry.vertices = erodeVertices(geometry.vertices, height, width);
+            }*/
+
+            verts = geometry.vertices;
+            var co = 0;
+            for (var i = 0; i < height; i++) {
+                for (var j = 0; j < width; j++) {
+                    //geometry.vertices.push(new THREE.Vector3(verts[co].x, verts[co].y, -10.0));
+                    geometry.vertices.push(new THREE.Vector3(j, i, - backgroundThichkness));
+                    co++;
+                }
+            }
+
+
+
+            var verts = geometry.vertices;
+            for (var i = 0; i < verts.length; i++) {
+                verts[i].x = -(verts[i].x / (width - 1) - 0.5) * stockSize.x;
+                verts[i].y = -(verts[i].y / (height - 1) - 0.5) * stockSize.y;
+            }
+
+            for (var i = 0; i < height - 1; i++) {
+                for (var j = 0; j < width - 1; j++) {
+                    //0 1 
+                    //2 3
+                    //if dist(0,3) > dist(1,2)
+
+                    if (distv2(verts[getInd(i, j, width)], verts[getInd(i + 1, j + 1, width)]) > distv2(verts[getInd(i, j + 1, width)], verts[getInd(i + 1, j, width)])) {
+                        geometry.faces.push(new THREE.Face3(getInd(i, j, width), getInd(i, j + 1, width), getInd(i + 1, j, width)));
+                        geometry.faces.push(new THREE.Face3(getInd(i + 1, j, width), getInd(i, j + 1, width), getInd(i + 1, j + 1, width)));
+                    }
+                    else {
+                        geometry.faces.push(new THREE.Face3(getInd(i, j, width), getInd(i + 1, j + 1, width), getInd(i + 1, j, width)));
+                        geometry.faces.push(new THREE.Face3(getInd(i, j, width), getInd(i, j + 1, width), getInd(i + 1, j + 1, width)));
+                    }
+
+
+
+
+                }
+            }
+
+            for (var i = 0; i < height - 1; i++) {
+                for (var j = 0; j < width - 1; j++) {
+                    if (dist2Dv2(verts[getInd(i, j, width)], verts[getInd(i + 1, j + 1, width)]) > dist2Dv2(verts[getInd(i, j + 1, width)], verts[getInd(i + 1, j, width)])) {
+                        geometry.faces.push(new THREE.Face3(getInd(i, j, width, nbTopPoints), getInd(i + 1, j, width, nbTopPoints), getInd(i, j + 1, width, nbTopPoints)));
+                        geometry.faces.push(new THREE.Face3(getInd(i + 1, j, width, nbTopPoints), getInd(i + 1, j + 1, width, nbTopPoints), getInd(i, j + 1, width, nbTopPoints)));
+                    }
+                    else {
+                        geometry.faces.push(new THREE.Face3(getInd(i, j, width, nbTopPoints), getInd(i + 1, j, width, nbTopPoints), getInd(i + 1, j + 1, width, nbTopPoints)));
+                        geometry.faces.push(new THREE.Face3(getInd(i, j, width, nbTopPoints), getInd(i + 1, j + 1, width, nbTopPoints), getInd(i, j + 1, width, nbTopPoints)));
+                    }
+                }
+            }
+
+            var neighbors = [{ x: 1, y: 0 }, { x: 0, y: 1 }];
+
+            //Add borders
+            /*
+            for( var i = 0 ; i < height-1 ; i++ )
+            {
+                var j=0;
+                geometry.faces.push(new THREE.Face3(getInd(i,j, width), getInd(i+1, j, width), getInd(i, j, width,nbTopPoints)));
+                geometry.faces.push(new THREE.Face3( getInd(i, j, width,nbTopPoints), getInd(i+1,j, width),getInd(i+1, j, width,nbTopPoints) ) );
+                j= width-1;
+                geometry.faces.push(new THREE.Face3(getInd(i,j, width), getInd(i, j, width,nbTopPoints), getInd(i+1, j, width)));
+                geometry.faces.push(new THREE.Face3( getInd(i, j, width,nbTopPoints),getInd(i+1, j, width,nbTopPoints), getInd(i+1,j, width) ) );
+            }
+
+            for( var j = 0 ; j < width-1 ; j++ )
+            {
+                var i=height-1;
+                geometry.faces.push(new THREE.Face3(getInd(i,j, width), getInd(i, j+1, width), getInd(i, j, width,nbTopPoints)));
+                geometry.faces.push(new THREE.Face3( getInd(i, j, width,nbTopPoints), getInd(i,j+1, width),getInd(i, j+1, width,nbTopPoints) ) );
+                i = 0;
+                geometry.faces.push(new THREE.Face3(getInd(i,j, width), getInd(i, j, width,nbTopPoints), getInd(i, j+1, width)));
+                geometry.faces.push(new THREE.Face3( getInd(i, j, width,nbTopPoints),getInd(i, j+1, width,nbTopPoints), getInd(i,j+1, width) ) );
+            }
+            */
+
+            //Adding border marching sqware style
+
+            // 1 1  
+            // 1 0 
+
+
+            var neighbors = [{ x: 1, y: 1 }, { x: 1, y: 0 },
+            { x: 0, y: 1 }, { x: 0, y: 0 }];
+
+
+            //var neighbors = [{x:0,y:0} ,{x:1,y:0},{x:0,y:1}, {x:1,y:1} ];
+            for (var i = -1; i < height; i++) {
+                for (var j = -1; j < width; j++) {
+                    var conf = 0;
+                    var w = 1;
+                    for (var k = 0; k < neighbors.length; k++) {
+                        var ii = i + neighbors[k].y;
+                        var jj = j + neighbors[k].x;
+                        var isok = ii >= 0 && jj >= 0 && ii < height && jj < width;
+                        if (isok) {
+                            conf += w;
+                        }
+                        w *= 2;
+                    }
+                    switch (conf) {
+                        case 0b1000:
+                        case 0b0100:
+                        case 0b0010:
+                        case 0b0001:
+                        case 0b1111:
+                            //add nothing
+                            break;
+                        //Walls parallel to y axis
+                        case 0b1100:
+                            addVerticalQuad(geometry.faces, i, j, i + 1, j, height, width, nbTopPoints);
+                            break;
+                        case 0b0011:
+                            addVerticalQuad(geometry.faces, i + 1, j + 1, i, j + 1, height, width, nbTopPoints);
+                            break;
+
+                        //Walls parallel to x axis
+                        case 0b1010:
+                            addVerticalQuad(geometry.faces, i, j + 1, i, j, height, width, nbTopPoints);
+                            break;
+                        case 0b0101:
+                            addVerticalQuad(geometry.faces, i + 1, j, i + 1, j + 1, height, width, nbTopPoints);
+                            break;
+
+
+                        default:
+                            console.log("unexpected conf : " + conf);
+                    }
+
+                }
+            }
+
+            /*
+            var mask = new Array(height*width);
+
+            for (var i = 0; i < height ; i++) 
+            {
+                for (var j = 0; j < width ; j++) 
+                {
+                    for( var k = 0 ; k < neighbors.length ; k++)
+                    {
+                        var ii = i + neighbors[k].y;
+                        var jj = j + neighbors[k].x;
+                        if( ii >= 0 && ii < height && jj >= 0 && jj < width )
+                        {
+
+                        }
+                    }
+                }
+            }
+            */
+
+
+
+            geometry.computeVertexNormals();
+            return geometry
+
+        }
+
+        function removeAllMesh(scene) {
+            for (let i = scene.children.length - 1; i >= 0; i--) {
+                console.log("children[" + i + "]  type : " + scene.children[i].type)
+                if (scene.children[i].type === "Mesh") {
+                    var obj = scene.children[i];
+                    scene.remove(obj);
+                    obj.geometry.dispose();
+                    console.log("diposing object" + i);
+                }
+
+
+            }
+        }
+
+
+        function generateXYFields(width, height) {
+            var outx = new Array(width * height);
+            var outy = new Array(width * height);
+            var co = 0;
+            for (var i = 0; i < height; i++) {
+                for (var j = 0; j < width; j++) {
+                    outx[co] = j;
+                    outy[co] = i;
+                    co++;
+                }
+            }
+            return { x: outx, y: outy }
+        }
+
+
+
+        function rasterPoint(x, y, z, width, height, outx, outy, outz, mask) {
+            var ix = Math.floor(x);
+            var iy = Math.floor(y);
+            var ind = getInd(iy, ix, width);
+            //var th = 0.05;
+            //var ith = 1 - th;
+            var eps = 0.1;
+
+
+
+            if (ix >= 0 && ix < width && iy >= 0 && iy < height) {
+                var val = outz[ind];
+                if (Array.isArray(val)) {
+                    val = Math.max(...val);
+                }
+
+                if (antialiase) {
+                    if (z > val - eps) {
+                        if (z < val + eps) {
+                            //instead of reducing the xy-fight here, save both coordinates and pick the closest to the border once we can compute it.
+                            if (Array.isArray(outx[ind]) == false) {
+                                outx[ind] = [outx[ind]];
+                                outy[ind] = [outy[ind]];
+                                outz[ind] = [outz[ind]];
+                            }
+                            outx[ind].push(x);
+                            outy[ind].push(y);
+                            outz[ind].push(z);
+
+                        }
+                        else {
+                            //outx[ind] = clamp(x, ix + th, ix + ith);
+                            //outy[ind] = clamp(y, iy + th, iy + ith);
+                            outx[ind] = x;
+                            outy[ind] = y;
+                            outz[ind] = z;
+                        }
+                    }
+                }
+
+                else {
+                    if (z > val) {
+                        outx[ind] = ix + 0.5;
+                        outy[ind] = iy + 0.5;
+                        outz[ind] = z;
+                    }
+
+                }
+
+                mask[ind] = true;
+
+            }
+        }
+
+
+        function voidf(x, y) {
+
+        }
+        /*
+        console.log("Scanline");
+        scanLine(0, 0, 30, 21, voidf);
+
+        console.log("Scanline");
+        scanLine(0, 0, 9, 30, voidf);
+
+        console.log("Scanline");
+        scanLine(50, 50, 80.5, 32, voidf);
+
+        console.log("Scanline");
+        scanLine(30, 30, 0, 0, voidf);
+
+        //Buggy
+        console.log("Scanline");
+        scanLine(0, 0, 0, -10, voidf);
+        */
+
+        function rasterFace(face, verts, width, height, outx, outy, outz, mask) {
+            var minx = Math.floor(Math.min(verts[face.a].x, verts[face.b].x, verts[face.c].x));
+            var maxx = Math.ceil(Math.max(verts[face.a].x, verts[face.b].x, verts[face.c].x));
+            var miny = Math.floor(Math.min(verts[face.a].y, verts[face.b].y, verts[face.c].y));
+            var maxy = Math.ceil(Math.max(verts[face.a].y, verts[face.b].y, verts[face.c].y));
+            //var x = verts[face.a].x;
+            //var y = verts[face.a].y;
+            //var z = verts[face.a].z;
+            //rasterPoint( x,y,z,width,height, outx, outy, outz, mask);
+            //rasterPoint( x+1,y,z,width,height, outx, outy, outz, mask);
+            //rasterPoint( x+2,y,z,width,height, outx, outy, outz, mask);
+
+            //Start at vertex a
+            //rasterPoint a
+            //Cast a ray towards b
+            //move to adjacent pixel in the ray direction
+            //enter = enterpixelcoord
+            //if b is in adjacent pixel raster b
+            //exit = exitpixelcoord
+            //mid = enter+exit/2 
+            //rasterPoint(mid)
+
+            /*
+            for (var y = miny; y < maxy; y++) {
+                for (var x = minx; x < maxx; x++) {
+                    rasterPoint(x, y, z, width, height, outx, outy, outz, mask);
+                }
+            }
+            */
+            var sx = maxx - minx + 1;
+            var sy = maxy - miny + 1;
+
+            var lm = new Array(sy * sx);
+            lm.fill(false);
+            function fillLocalMask(x, y, z) {
+                var lx = Math.floor(x) - minx;
+                var ly = Math.floor(y) - miny;
+                lm[ly * sx + lx] = true;
+            }
+
+            function liner(v1, v2) {
+                function f(x, y) {
+                    var d12 = Math.sqrt(dist2(v1.x, v1.y, v2.x, v2.y));
+                    var d1x = Math.sqrt(dist2(x, y, v1.x, v1.y));
+                    var v = d1x / d12;
+                    var u = 1.0 - v;
+                    var z = u * v1.z + v * v2.z;
+                    if (Number.isNaN(v)) {
+                        //console.log("NAN warning ");
+                        //console.log( v1);
+                        //console.log(v2);
+                        z = Math.max(v1.z, v2.z);
+                    }
+
+                    rasterPoint(x, y, z, width, height, outx, outy, outz, mask);
+                    fillLocalMask(x, y);
+                }
+                return f;
+            }
+
+            function rasterVertex(x, y, z) {
+                rasterPoint(x, y, z, width, height, outx, outy, outz, mask);
+                fillLocalMask(x, y);
+            }
+
+            rasterVertex(verts[face.a].x, verts[face.a].y, verts[face.a].z);
+            rasterVertex(verts[face.b].x, verts[face.b].y, verts[face.b].z);
+            rasterVertex(verts[face.c].x, verts[face.c].y, verts[face.c].z);
+
+            scanLine(verts[face.a].x, verts[face.a].y, verts[face.b].x, verts[face.b].y, liner(verts[face.a], verts[face.b]));
+            scanLine(verts[face.b].x, verts[face.b].y, verts[face.c].x, verts[face.c].y, liner(verts[face.b], verts[face.c]));
+            scanLine(verts[face.c].x, verts[face.c].y, verts[face.a].x, verts[face.a].y, liner(verts[face.c], verts[face.a]));
+
+            //We mark outside of face by scanning from left to right until we hit the border
+            for (var y = miny; y <= maxy; y++) {
+                for (var x = minx; x <= maxx; x++) {
+                    var lx = Math.floor(x) - minx;
+                    var ly = Math.floor(y) - miny;
+                    if (lm[ly * sx + lx] == true) {
+                        break;
+                    }
+                    else {
+                        lm[ly * sx + lx] = true;
+                    }
+                }
+            }
+
+            //We mark outside of face by scanning from right to left until we hit the border
+            for (var y = miny; y <= maxy; y++) {
+                for (var x = maxx; x >= minx; x--) {
+                    var lx = Math.floor(x) - minx;
+                    var ly = Math.floor(y) - miny;
+                    if (lm[ly * sx + lx] == true) {
+                        break;
+                    }
+                    else {
+                        lm[ly * sx + lx] = true;
+                    }
+                }
+            }
+
+            //The inside the face pixel are those with the local mask still false 
+            //We raster these.
+
+            for (var y = miny; y <= maxy; y++) {
+                for (var x = minx; x <= maxx; x++) {
+                    var lx = Math.floor(x) - minx;
+                    var ly = Math.floor(y) - miny;
+                    if (lm[ly * sx + lx] == false) {
+                        var p = { x: x, y: y };
+                        var bary = Barycentric(p, verts[face.a], verts[face.b], verts[face.c]);
+                        var z = bary.u * verts[face.a].z + bary.v * verts[face.b].z + bary.w * verts[face.c].z;
+                        rasterPoint(x, y, z, width, height, outx, outy, outz, mask);
+                    }
+                }
+            }
+
+
+        }
+
+        function inRange(x, y, width, height) {
+            return x >= 0 && x < width && y >= 0 && y < height;
+        }
+
+        function raster(mesh, width, height, camera) {
+            var mask = new Array(width * height);
+            var outz = new Array(width * height);
+            var outxy = generateXYFields(width, height);
+            var outx = outxy.x;
+            var outy = outxy.y;
+
+            //console.log(mesh);
+
+
+            var stockz = document.getElementById("stockZ").valueAsNumber;
+
+
+            mask.fill(false);
+
+
+
+
+            var sx = camera.sx;
+            var sy = camera.sy;
+
+            var minx = -sx / 2;
+            var maxx = sx / 2;
+
+            //var sx = maxx - minx;
+
+            var miny = -sy / 2;
+            var maxy = sy / 2;
+            //var sy = maxy - miny;
+
+            var eps = 1.23e-5;
+            //var eps = 0;
+
+            var zmin = 1e6;
+            var zmax = -1e6;
+
+
+
+            for (var j = 0; j < meshes.length; j++) {
+                var geometry = new THREE.Geometry();
+                geometry.fromBufferGeometry(meshes[j].geometry);
+
+                var verts = geometry.vertices;
+                var faces = geometry.faces;
+
+                for (var i = 0; i < verts.length; i++) {
+                    var vector = new THREE.Vector3(verts[i].x, verts[i].y, verts[i].z);
+                    vector.applyMatrix4(meshes[j].matrixWorld);
+                    var z = vector.z;
+                    if (z > zmax)
+                        zmax = z;
+                    if (z < zmin)
+                        zmin = z;
+                }
+                geometry.dispose();
+
+            }
+            console.log("raster");
+            console.log("zmin :");
+            console.log(zmin);
+            console.log("zmax :");
+            console.log(zmax);
+
+            outz.fill(zmin);
+
+            for (var j = 0; j < meshes.length; j++) {
+                var geometry = new THREE.Geometry();
+                geometry.fromBufferGeometry(meshes[j].geometry);
+                var verts = geometry.vertices;
+                var faces = geometry.faces;
+                for (var i = 0; i < verts.length; i++) {
+                    var vector = new THREE.Vector3(verts[i].x, verts[i].y, verts[i].z);
+                    vector.applyMatrix4(meshes[j].matrixWorld);
+                    verts[i] = vector;
+                    var z = verts[i].z;
+                    verts[i].x = width * (verts[i].x + eps - minx) / sx;
+                    verts[i].y = height * (verts[i].y + eps - miny) / sy;
+                }
+
+                for (var i = 0; i < faces.length; i++) {
+                    rasterFace(faces[i], verts, width, height, outx, outy, outz, mask);
+                }
+                geometry.dispose();
+
+            }
+
+            //Resolve the xy fighting here
+
+            var neighbors = [];
+            for (var i = -1; i <= 1; i++) {
+                for (var j = -1; j <= 1; j++) {
+                    if (i == 0 && j == 0)
+                        continue
+                    neighbors.push({ x: j, y: i });
+                }
+            }
+            var borderThreshold = 0.1 * (zmax - zmin);
+            for (var i = 0; i < height; i++)
+                for (var j = 0; j < width; j++) {
+                    var ind = getInd(i, j, width);
+                    if (Array.isArray(outz[ind])) {
+                        //We pick the vertex closer to the bordering neighbors
+                        var mind = 1e6;
+                        var minl = -1;
+                        for (var l = 0; l < outz[ind].length; l++)
+                            for (var k = 0; k < neighbors.length; k++) {
+                                var ii = i + neighbors[k].y;
+                                var jj = j + neighbors[k].x;
+                                if (ii < 0 || ii >= height || jj < 0 || jj >= width)
+                                    continue;
+                                var indn = getInd(ii, jj, width);
+                                var nx = outx[indn];
+                                var ny = outy[indn];
+                                var nz = outz[indn];
+                                if (Array.isArray(nx)) {
+                                    nx = nx[0];
+                                    ny = ny[0];
+                                    nz = nz[0];
+                                }
+                                //If the neighbor is not on a border we skip it
+                                if (Math.abs(nz - outz[ind][l]) < borderThreshold) {
+                                    continue;
+                                }
+
+                                var d = distv2({ x: outx[ind][l], y: outy[ind][l], z: outz[ind][l] }, { x: nx, y: ny, z: nz });
+                                //console.log( "l : " + l );
+                                //console.log( "minl : " + minl );
+                                //console.log( "mind : " + mind );
+                                //console.log( "d : " + d );
+                                if (d < mind) {
+                                    minl = l;
+                                    mind = d;
+                                }
+                            }
+
+                        if (minl >= 0 && outx[ind].length < 3) {
+                            outx[ind] = outx[ind][minl];
+                            outy[ind] = outy[ind][minl];
+                            outz[ind] = outz[ind][minl];
+                        }
+                        else {
+
+                            outx[ind] = outx[ind].reduce((a, b) => a + b, 0) / outx[ind].length;
+                            outy[ind] = outy[ind].reduce((a, b) => a + b, 0) / outy[ind].length;
+                            outz[ind] = outz[ind].reduce((a, b) => a + b, 0) / outz[ind].length;
+
+                            /*
+                            outx[ind] =  outx[ind][0];
+                            outy[ind] =  outy[ind][0];
+                            outz[ind] =  outz[ind][0];
+                            */
+                        }
+                    }
+
+                }
+
+
+            var zclip = document.getElementById("farclip").valueAsNumber;
+
+            var zmin = zmin + zclip * (zmax - zmin);
+
+            for (var i = 0; i < outz.length; i++) {
+                if (mask[i] == false)
+                    outz[i] = 0.0;
+                else {
+                    //console.log( outz[i]);
+                    outz[i] = stockz * clamp((outz[i] - zmin) / (zmax - zmin), 0.0, 1.0);
+                }
+
+            }
+
+
+
+            //We look for border to correct for the aliasing effect
+            //We do 4 passes in the correct directions to avoid allocating memory.
+            //var offs =[];
+            var offs = [{ x: 1, y: 1 }, { x: -1, y: 1 }, { x: -1, y: -1 }, { x: 1, y: -1 }];
+            var novertwall = 0.0; // 0 if you want the walls to be verticalized //1.0 if not
+
+            if (document.getElementById("VertcalWalls").checked == false) {
+                novertwall = 1.0
+            }
+
+            for (var l = 0; l < offs.length; l++) {
+
+                var ox = offs[l].x;
+                var oy = offs[l].y;
+
+                var neighbors = [{ x: ox, y: 0 },
+                { x: 0, y: oy }, { x: ox, y: oy }];
+
+                var zdrop = 1.0;
+
+                //By looping on the right direction we can avoid copying
+                //var newx = outx.slice();
+                //var newy = outy.slice();
+
+
+                var ly = Math.max(0, -oy);
+                var hy = Math.min(height, height - oy);
+                var lx = Math.max(0, -ox);
+                var hx = Math.min(width, width - ox);
+
+
+
+                for (var i0 = ly; i0 < hy; i0++) {
+                    for (var j0 = lx; j0 < hx; j0++) {
+                        var i = i0;
+                        var j = j0;
+
+
+                        if (oy < 0) {
+                            i = hy - 1 - (i0 - ly);
+                        }
+                        if (ox < 0) {
+                            j = hx - 1 - (j0 - lx);
+                        }
+
+                        var ind = getInd(i, j, width);
+                        var conf = 0;
+                        var w = 1;
+                        for (var k = 0; k < neighbors.length; k++) {
+                            var ii = i + neighbors[k].y;
+                            var jj = j + neighbors[k].x;
+
+                            var dz = outz[getInd(ii, jj, width)] - outz[getInd(i, j, width)];
+                            if (dz > zdrop)
+                                conf += w;
+
+                            w *= 2;
+                        }
+                        switch (conf) {
+                            case 0b000:
+                                //do nothing
+                                break;
+                            case 0b001:
+                            case 0b101:
+                                outx[ind] = outx[getInd(i, j + ox, width)] - novertwall * ox;
+                                outy[ind] = outy[getInd(i, j + ox, width)];
+                                break;
+                            case 0b010:
+                            case 0b110:
+                                outx[ind] = outx[getInd(i + oy, j, width)];
+                                outy[ind] = outy[getInd(i + oy, j, width)] - novertwall * oy;
+                                break;
+
+                            case 0b100:
+                            case 0b011:
+                            case 0b111:
+                                outx[ind] = outx[getInd(i + oy, j + ox, width)] - novertwall * ox;
+                                outy[ind] = outy[getInd(i + oy, j + ox, width)] - novertwall * oy;
+                                break;
+
+                            default:
+                                console.log("unexpected conf : " + conf);
+                        }
+
+                    }
+                }
+
+                //outx = newx.slice();
+                //outy = newy.slice();
+            }
+
+
+            return { x: outx, y: outy, z: outz };
+
+        }
+
+        function exportMesh() {
+            if(outmesh == null)
+            {
+                console.log("Trying to export an empty mesh");
+                alert("Trying to export an empty mesh, please generate the relief first");
+                return;
+            }
+            var rotation = outmesh.rotation;
+            outmesh.rotation.x = exportrotation.x;
+            outmesh.rotation.y = exportrotation.y;
+            outmesh.rotation.z = exportrotation.z;
+
+            setTimeout(function () {
+                var exporter = new THREE.STLExporter();
+                var data = exporter.parse(outmesh, { binary: true });
+
+                var name = document.getElementById("outname").value;
+                saveByteArray([data.buffer], name + ".stl");
+            }, 10);
+
+            //outmesh.rotation.x = rotation.x;
+            //outmesh.rotation.y = rotation.y;
+            //outmesh.rotation.z = rotation.z;
+        }
+
+
+
+
+        //return the point
+        function rayZPlaneIntersection(p, dir, z, outz) {
+            var t = -(p.z - z) / dir.z;
+            //var tz = p.z + t*dir.z should be equal to z;
+            return new THREE.Vector3(p.x + t * dir.x, p.y + t * dir.y, outz);
+        }
+
+        function cutTriangleByZPlane(lface, outVertices, createdVertsDict, z, outz) {
+            var key0 = Math.min(lface[1], lface[0]) + "_" + Math.max(lface[1], lface[0]);
+            var iv0 = -1;
+            if (key0 in createdVertsDict) {
+                iv0 = createdVertsDict[key0];
+            }
+            else {
+                var dir1 = minus(outVertices[lface[1]], outVertices[lface[0]]);
+                var nv0 = rayZPlaneIntersection(outVertices[lface[0]], dir1, z, outz);
+                var iv0 = outVertices.length;
+                createdVertsDict[key0] = iv0;
+                outVertices.push(nv0);
+            }
+
+            var iv1 = -1;
+            if (key1 in createdVertsDict) {
+                iv1 = createdVertsDict[key0];
+            }
+            else {
+                var key1 = Math.min(lface[2], lface[0]) + "_" + Math.max(lface[2], lface[0]);
+                var dir2 = minus(outVertices[lface[2]], outVertices[lface[0]]);
+                var nv1 = rayZPlaneIntersection(outVertices[lface[0]], dir2, z, outz);
+
+                iv1 = outVertices.length;
+                createdVertsDict[key1] = iv1;
+                outVertices.push(nv1);
+            }
+
+            return { iv0: iv0, iv1: iv1 };
+
+        }
+
+        function countVertexAbovePlane(vertices, face, z) {
+            var co = 0;
+            if (vertices[face.a].z > z)
+                co++;
+            if (vertices[face.b].z > z)
+                co++;
+            if (vertices[face.c].z > z)
+                co++;
+            return co;
+        }
+
+
+        function getVert(face, i) {
+            if (i % 3 == 0)
+                return face.a;
+            else if (i % 3 == 1)
+                return face.b;
+            else
+                return face.c;
+        }
+
+        Array.prototype.rotate = function (n) {
+            while (this.length && n--) {
+                this.unshift(this.pop());
+            }
+            return this;
+        }
+
+        function minus(v1, v2) {
+            return { x: v1.x - v2.x, y: v1.y - v2.y, z: v1.z - v2.z };
+        }
+
+
+
+        function cutMeshByZPlane(vertices, faces, z, justTop, backgroundThichkness) {
+            //Return only the upper part
+            //We assume that the mesh is a relief i.e. its section is monotonically decreasing with increasing z
+            //With this assumption we can generate the backface just by taking the projection of the front face
+            //It may induce some zero-width triangles because of vertical walls.
+            //TODO: replace the back-face generation with a polygon with hole triangulation algorithm.
+
+            var createdVertsDict = {};
+            var outVertices = [];
+            var vl = vertices.length;
+            var bz = -backgroundThichkness;
+            for (var i = 0; i < vertices.length; i++) {
+                outVertices.push(new THREE.Vector3(vertices[i].x, vertices[i].y, vertices[i].z));
+            }
+            for (var i = 0; i < vertices.length; i++) {
+                outVertices.push(new THREE.Vector3(vertices[i].x, vertices[i].y, bz));
+            }
+
+
+            var outfaces = [];
+            for (var i = 0; i < faces.length; i++) {
+                var face = faces[i];
+                var co = countVertexAbovePlane(vertices, face, z);
+                if (co == 3) {
+                    outfaces.push(new THREE.Face3(face.a, face.b, face.c));
+                    //projected on plane
+                    if (justTop == false) {
+                        outfaces.push(new THREE.Face3(vl + face.b, vl + face.a, vl + face.c))
+                    }
+                }
+                else if (co == 2) {
+                    var lface = new Array(3);
+                    for (var j = 0; j < 3; j++) {
+                        lface[j] = getVert(face, j);
+                    }
+                    for (var j = 0; j < 3; j++) {
+                        var vind = getVert(face, j);
+                        var v = outVertices[vind];
+                        if (v.z < z) {
+                            lface.rotate(3 - j);
+                            break;
+                        }
+                    }
+
+                    var nv = cutTriangleByZPlane(lface, outVertices, createdVertsDict, z, bz);
+                    var iv0 = nv.iv0;
+                    var iv1 = nv.iv1;
+
+                    outfaces.push(new THREE.Face3(iv0, lface[1], lface[2]));
+                    outfaces.push(new THREE.Face3(iv0, lface[2], iv1));
+                    //projected on plane
+                    if (justTop == false) {
+                        outfaces.push(new THREE.Face3(iv0, vl + lface[2], vl + lface[1]));
+                        outfaces.push(new THREE.Face3(iv0, iv1, vl + lface[2]));
+                    }
+                }
+                else if (co == 1) {
+                    var lface = new Array(3);
+                    for (var j = 0; j < 3; j++) {
+                        lface[j] = getVert(face, j);
+                    }
+                    for (var j = 0; j < 3; j++) {
+                        var vind = getVert(face, j);
+                        var v = outVertices[vind];
+                        if (v.z >= z) {
+                            lface.rotate(3 - j);
+                            break;
+                        }
+                    }
+
+                    var nv = cutTriangleByZPlane(lface, outVertices, createdVertsDict, z, bz);
+                    var iv0 = nv.iv0;
+                    var iv1 = nv.iv1;
+
+                    outfaces.push(new THREE.Face3(lface[0], iv0, iv1));
+                    //projected on plane
+                    if (justTop == false) {
+                        outfaces.push(new THREE.Face3(iv0, vl + lface[0], iv1));
+                    }
+                }
+
+
+            }
+            //console.log("outfaces.length");
+            //console.log(outfaces.length);
+            var geometry = new THREE.Geometry();
+            geometry.vertices = outVertices;
+            geometry.faces = outfaces;
+            geometry.computeVertexNormals();
+            return geometry;
+        }
+
+
+        function scaleonly() {
+            var stockx = document.getElementById("stockX").valueAsNumber;
+            var stocky = document.getElementById("stockY").valueAsNumber;
+            var stockz = document.getElementById("stockZ").valueAsNumber;
+
+            var sx = stockx;
+            var sy = stocky;
+
+
+            var minx = -sx / 2;
+            var maxx = sx / 2;
+
+
+
+            var miny = -sy / 2;
+            var maxy = sy / 2;
+
+            var zmin = 1e6;
+            var zmax = -1e6;
+
+            var outTempV = [];
+            var outTempF = [];
+            var vertCount = 0;
+            for (var j = 0; j < meshes.length; j++) {
+                var geometry = new THREE.Geometry();
+                geometry.fromBufferGeometry(meshes[j].geometry);
+                //var geometry = meshes[j].geometry;
+                var verts = geometry.vertices;
+                var faces = geometry.faces;
+                var transfo = meshes[j].matrixWorld;
+                var tempVertices = new Array(verts.length);
+                var tempFaces = new Array(faces.length);
+                for (var i = 0; i < verts.length; i++) {
+                    var v = new THREE.Vector3(verts[i].x, verts[i].y, verts[i].z);
+                    v.applyMatrix4(transfo);
+                    var z = v.z;
+                    //v.x = (v.x - minx);
+                    //v.y = (v.y - miny);
+                    if (z > zmax)
+                        zmax = z;
+                    if (z < zmin)
+                        zmin = z;
+                    //outVertices.push(v);
+                    tempVertices[i] = v;
+                }
+
+                for (var i = 0; i < faces.length; i++) {
+
+                    var face = faces[i];
+                    var f = new THREE.Face3(vertCount + face.a, vertCount + face.b, vertCount + face.c);
+                    //outFaces.push(f);
+                    tempFaces[i] = f;
+                }
+                vertCount += verts.length;
+                geometry.dispose();
+                outTempV.push(tempVertices);
+                outTempF.push(tempFaces);
+            }
+
+            var outVertices = [].concat(...outTempV);
+            var outFaces = [].concat(...outTempF);
+            console.log("outVertices.length : " + outVertices.length);
+
+            console.log("zmax : ");
+            console.log(zmax);
+            console.log("zmin : ");
+            console.log(zmin);
+            removeAllMesh(outputScene);
+
+            var geometry = new THREE.Geometry();
+            geometry.vertices = outVertices;
+            geometry.faces = outFaces;
+
+            var zclip = document.getElementById("farclip").valueAsNumber;
+            var zmin = zmin + zclip * (zmax - zmin);
+
+            geometry.translate(0, 0, -zmax);
+            geometry.scale(1, 1, stockz / (zmax - zmin));
+            geometry.translate(0, 0, stockz);
+            geometry.computeVertexNormals();
+
+            //We convert to a buffer geometry to release memory
+            var geom = new THREE.BufferGeometry().fromGeometry(geometry);
+            geometry.dispose();
+            outunif.stockz.value = stockz;
+            var mymesh = new THREE.Mesh(geom, outmat);
+            //mymesh.rotateZ(Math.PI);
+            outmesh = mymesh;
+            exportrotation = new THREE.Vector3(outmesh.rotation.x, outmesh.rotation.y, outmesh.rotation.z);
+            outputScene.add(outmesh);
+            console.log("done");
+        }
+
+
+        function snapshot() {
+            var stockx = document.getElementById("stockX").valueAsNumber;
+            var stocky = document.getElementById("stockY").valueAsNumber;
+            var stockz = document.getElementById("stockZ").valueAsNumber;
+
+            var field = generateXYFields(stockx, stocky);
+            var resolution = document.getElementById("resolution").valueAsNumber;;
+            var imwidth = Math.round(resolution * stockx);
+            var imheight = Math.round(resolution * stocky);
+            field = raster(mesh, imwidth, imheight, { sx: stockx, sy: stocky });
+
+            var backgroundThichkness = document.getElementById("background").valueAsNumber;
+            var bt = backgroundThichkness;
+            var cutBackground = document.getElementById("cutbackground").checked;
+
+            var justTop = document.getElementById("justTop").checked;
+            if (cutBackground || Math.abs(backgroundThichkness) < 0.001 || justTop) {
+                cutBackground = true;
+            }
+
+            var bt = backgroundThichkness >= 0 ? backgroundThichkness : backgroundThichkness - stockz;
+            if (cutBackground) {
+                bt = 10.0;
+            }
+            var geometry = fieldToGeometry({ data: field, width: imwidth, height: imheight }, { x: stockx, y: stocky }, bt);
+
+            if (cutBackground) {
+                var sign = 1.0;
+                if (justTop) {
+                    if (backgroundThichkness < -0.001)
+                        sign = -1;
+                }
+                var geom = cutMeshByZPlane(geometry.vertices, geometry.faces, sign * 0.001, justTop, backgroundThichkness >= 0 ? backgroundThichkness : backgroundThichkness - stockz);
+                geometry.dispose();
+                geometry = geom;
+            }
+
+
+            if (backgroundThichkness < 0) {
+                //we are rendering a negative so we need to flip the normals
+                var tmp;
+                for (var f = 0; f < geometry.faces.length; f++) {
+                    tmp = geometry.faces[f].clone();
+                    geometry.faces[f].a = tmp.c;
+                    geometry.faces[f].c = tmp.a;
+                }
+                geometry.computeVertexNormals();
+            }
+
+            //We convert to a buffer geometry to release memory
+            var geom = new THREE.BufferGeometry().fromGeometry(geometry);
+            geometry.dispose();
+            var mymesh = new THREE.Mesh(geom, outmat);
+
+            mymesh.rotateZ(Math.PI);
+            if (backgroundThichkness < 0) {
+                mymesh.rotateY(Math.PI);
+            }
+            removeAllMesh(outputScene);
+            outmesh = mymesh
+
+            outunif.stockz.value = stockz;
+            if (backgroundThichkness < 0) {
+                outunif.stockz.value = -stockz;
+            }
+            exportrotation = new THREE.Vector3(outmesh.rotation.x, outmesh.rotation.y, outmesh.rotation.z);
+            outputScene.add(outmesh);
+            console.log("done");
+
+        }
+
+
+
+    </script>
+</body>
+
+</html>
