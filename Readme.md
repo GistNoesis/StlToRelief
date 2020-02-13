@@ -4,7 +4,7 @@ https://gistnoesis.github.io/StlToRelief/
 
 The site source code is in the gh-pages branch of this repository.
 
-# Various real world realizations 
+# Various real world realizations :
 
 Printed in PLA using a brand new color-mixing Geeetech A20M, mills are done with the MPCNC.
 
