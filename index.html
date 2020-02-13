@@ -145,7 +145,7 @@
             It is free to use for commercial usage but you must "attribute" us to help the discovery of this tool, and based on honor system a 10% mark-up <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XW7V5MMYV7848&source=url"
             target="_blank">donation</a> for us is expected to help fund the development ecosystem <br /><br />
             By "attribute" I mean provide your users with <br /><b>Made using : <a href="https://gistnoesis.github.io/StlToRelief" target="_blank">https://gistnoesis.github.io/StlToRelief</a></b><br /><br />
-            The code is on <a href="https://github.com/GistNoesis/StlToRelief/" target="_blank">github</a>, and can be run locally, feel free to star us or report issues there.<br /><br />
+            The code is on <a href="https://github.com/GistNoesis/StlToRelief" target="_blank">github</a>, and can be run locally, feel free to star us or report issues there.<br /><br />
             You are not allowed to serve this code, nor distribute it <br /><br />
             It is to prevent a similar service which would save everything to the cloud, own your creations, add watermarks and API calls to 3d printing services,
              take a commission and outgrow us with marketing spend, therefore preventing our sustainable development<br /><br />
@@ -457,14 +457,17 @@ float DecodeFloatRGBA( vec4 rgba ) {
             canvas.addEventListener("touchstart", function (e) {
                 e.preventDefault();
 
-                mousePos = getTouchPos(canvas, e);
+                var mousePos = getTouchPos(canvas, e);
+
                 var touch = e.touches[0];
                 var mouseEvent = new MouseEvent("mousedown", {
-                    clientX: touch.clientX,
-                    clientY: touch.clientY,
-
+                    clientX: mousePos.x,
+                    clientY: mousePos.y,
+                    offsetX: touch.clientX,
+                    offsetY: touch.clientY
                 });
-                //document.getElementById("outputlog").innerText = touch.clientX + " " + touch.clientY + " " + touch.offsetX + " " + touch.offsetY;
+                mouseEvent.isTouch = true;
+                //document.getElementById("outputlog4").innerText = "l4 " + touch.clientX + " " + touch.clientY + " " + touch.offsetX + " " + touch.offsetY + " " + mousePos.x + " " + mousePos.y;
                 canvas.dispatchEvent(mouseEvent);
             }, false);
             canvas.addEventListener("touchend", function (e) {
@@ -477,12 +480,16 @@ float DecodeFloatRGBA( vec4 rgba ) {
                 e.preventDefault();
                 //document.getElementById("outputlog").innerText = doubleClick;
                 var touch = e.touches[0];
+                var mousePos = getTouchPos(canvas, e);
                 var mouseEvent = new MouseEvent("mousemove", {
-                    clientX: touch.clientX,
-                    clientY: touch.clientY,
+                    clientX: mousePos.x,
+                    clientY: mousePos.y,
+                    offsetX: touch.clientX,
+                    offsetY: touch.clientY,
                     ctrlKey: doubleClick,
                     shiftKey: e.touches.length == 2
                 });
+                mouseEvent.isTouch = true;
                 canvas.dispatchEvent(mouseEvent);
             }, false);
 
@@ -490,7 +497,7 @@ float DecodeFloatRGBA( vec4 rgba ) {
 
         function getTouchPos(canvasDom, touchEvent) {
             var rect = canvasDom.getBoundingClientRect();
-            //document.getElementById("outputlog2").innerText = rect.left + " " + rect.top;
+            //document.getElementById("outputlog2").innerText = touchEvent.target + " "+ touchEvent.touches[0].clientX + " " + touchEvent.touches[0].clientY + " " + rect.left + " " + rect.top;
             //- rect.left
             //- rect.top
 
@@ -586,9 +593,19 @@ float DecodeFloatRGBA( vec4 rgba ) {
 
         function inputCanvasMouseDownHandler(evt) {
             var canvas = document.getElementById("inputCanvas");
+            var mouse = null;
+            if( evt.isTouch == true )
+            {
+                mouse = { x: (evt.clientX / canvas.width) * 2 - 1, y: - (evt.clientY / canvas.height) * 2 + 1 };
+            }
+            else
+            {
+                mouse = { x: (evt.offsetX / canvas.width) * 2 - 1, y: - (evt.offsetY / canvas.height) * 2 + 1 };
+            }
+            //var mouse = { x: (evt.clientX / canvas.width) * 2 - 1, y: - (evt.clientY / canvas.height) * 2 + 1 };
 
-            var mouse = { x: (evt.offsetX / canvas.width) * 2 - 1, y: - (evt.offsetY / canvas.height) * 2 + 1 };
-            //document.getElementById("outputlog3").innerText = mouse.x + " " + mouse.y;
+            //document.getElementById("outputlog").innerText = evt.isTouch + " " + evt.offsetX +  " " + evt.offsetX + " " + evt.clientX + " " + evt.clientY; 
+            //document.getElementById("outputlog3").innerText = canvas.width + " " + canvas.height;
 
             raycaster.setFromCamera(mouse, camera);
 
