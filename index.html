@@ -633,14 +633,46 @@ float DecodeFloatRGBA( vec4 rgba ) {
 
         function handleScale(deltaY) {
 
-            mesh.scale.x += deltaY / 1000.0;
-            mesh.scale.y += deltaY / 1000.0;
-            mesh.scale.z += deltaY / 1000.0;
+            var sf = clamp( Math.max(Math.abs(mesh.scale.x), Math.abs(mesh.scale.y), Math.abs(mesh.scale.z)),0.1,10.0);
 
-            var s = Math.max(mesh.scale.x, mesh.scale.y, mesh.scale.z);
+            var invsf = 1.0 / sf;
+            //mesh.scale.x += sf*deltaY / 1000.0;
+            //mesh.scale.y += sf*deltaY / 1000.0;
+            //mesh.scale.z += sf*deltaY / 1000.0;
+            
+            //The following would preserve the scale ratio 
+            //But doesn't allow the scale to go down to much
+
+            var cs = Math.max(Math.abs(mesh.scale.x),Math.abs(mesh.scale.y),Math.abs(mesh.scale.z));
+
+            if( (cs < 0.01 && deltaY < 0)|| (cs > 100.0 && deltaY >0) )
+            {
+                return;
+            }
+
+            mesh.scale.x *= Math.exp(invsf*deltaY / 1000);
+            mesh.scale.y *= Math.exp(invsf*deltaY / 1000);
+            mesh.scale.z *= Math.exp(invsf*deltaY / 1000);
+            
+            var s = Math.max(Math.abs(mesh.scale.x),Math.abs(mesh.scale.y),Math.abs(mesh.scale.z));
+
             if (Math.abs(s) < 1e-4) {
                 s = 1;
             }
+
+            if( mesh.scale.x < 1e-4)
+            {
+                s*=-1;
+            }
+            if( mesh.scale.y < 1e-4)
+            {
+                s*=-1;
+            }
+            if( mesh.scale.z < 1e-4)
+            {
+                s*=-1;
+            }
+
             document.getElementById("scaleAll").value = Math.round(1000 * s) / 1000.0;
             document.getElementById("scaleX").value = Math.round(1000 * mesh.scale.x / s) / 1000.0;
             document.getElementById("scaleY").value = Math.round(1000 * mesh.scale.y / s) / 1000.0;
@@ -651,7 +683,7 @@ float DecodeFloatRGBA( vec4 rgba ) {
 
             if (mesh != null) {
                 if (evt.shiftKey) {
-                    handleScale(deltaY);
+                    handleScale(clamp(Math.sign(deltaY)*deltaY*deltaY,-50.,50.));
                 }
                 else if (evt.ctrlKey2 == false) {
                     var deltaRotationQuaternion = new THREE.Quaternion()
@@ -959,7 +991,7 @@ float DecodeFloatRGBA( vec4 rgba ) {
         document.getElementById("inputCanvas").addEventListener('wheel', function (event) {
             if (mesh == null)
                 return;
-            handleScale(event.deltaY);
+            handleScale(3*event.deltaY);
             moveObject();
             return false;
         }, false);
